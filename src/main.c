@@ -208,7 +208,7 @@ void playTone(SDL_AudioDeviceID deviceId, i32 samplesPerSecond, i32 hz) {
   i32 halfSquareWavePeriod = squareWavePeriod / 2;
   i32 bytesPerSample = sizeof(i16) * 2;
   bool soundIsPlaying = false;
-    i32 targetQueueBytes = samplesPerSecond * bytesPerSample;
+    i32 targetQueueBytes = 4800 * bytesPerSample;
     i32 bytesToWrite = targetQueueBytes - SDL_GetQueuedAudioSize(deviceId);
     if(bytesToWrite) {
       void *soundBuffer = malloc(bytesToWrite);
