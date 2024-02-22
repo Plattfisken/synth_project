@@ -24,16 +24,23 @@ struct {
   u32 pixels[SCREEN_WIDTH * SCREEN_HEIGHT];
   bool quit;
 } state;
+enum note { 
+  none,
+  C = 262, 
+  CSharp = 277, 
+  D = 294, 
+  DSharp = 311,
+  E = 330, 
+  F = 349, 
+  FSharp = 370, 
+  G = 392, 
+  GSharp = 415, 
+  A = 440, 
+  ASharp = 466, 
+  B = 494
+} noteToPlay;
+i32 _octave = 0;
 int last_frame_time = 0;
-bool _playC = false;
-bool _playD = false;
-bool _playE = false;
-bool _playF = false;
-bool _playG = false;
-bool _playA = false;
-bool _playB = false;
-bool _playHighC = false;
-
 int initialize_window(void) {
 
   if (SDL_Init(SDL_INIT_EVERYTHING | SDL_INIT_AUDIO) != 0) {
@@ -75,42 +82,60 @@ void process_input() {
       state.quit = true;
       break;
     case SDL_KEYDOWN:
-      if (event.key.keysym.sym == SDLK_ESCAPE)
-        state.quit = true;
-      if (event.key.keysym.sym == SDLK_z)
-        _playC = true;
-      if (event.key.keysym.sym == SDLK_x)
-        _playD = true;
-      if (event.key.keysym.sym == SDLK_c)
-        _playE = true;
-      if (event.key.keysym.sym == SDLK_v)
-        _playF = true;
-      if (event.key.keysym.sym == SDLK_b)
-        _playG = true;
-      if (event.key.keysym.sym == SDLK_n)
-        _playA = true;
-      if (event.key.keysym.sym == SDLK_m)
-        _playB = true;
-      if (event.key.keysym.sym == SDLK_COMMA)
-        _playHighC = true;
+      switch (event.key.keysym.sym) {
+        case SDLK_ESCAPE:
+          state.quit = true;
+          break; 
+        case SDLK_z:
+          noteToPlay = C;
+          break;
+        case SDLK_s:
+          noteToPlay = CSharp;
+          break;
+        case SDLK_x:
+          noteToPlay = D;
+          break;
+        case SDLK_d:
+          noteToPlay = DSharp;
+          break;
+        case SDLK_c:
+          noteToPlay = E;
+          break;
+        case SDLK_v:
+          noteToPlay = F;
+          break;
+        case SDLK_g:
+          noteToPlay = FSharp;
+          break;
+        case SDLK_b:
+          noteToPlay = G;
+          break;
+        case SDLK_h:
+          noteToPlay = GSharp;
+          break;
+        case SDLK_n:
+          noteToPlay = A;
+          break;
+        case SDLK_j:
+          noteToPlay = ASharp;
+          break;
+        case SDLK_m:
+          noteToPlay = B;
+          break;
+        case SDLK_COMMA:
+          noteToPlay = C * 2;
+          break;
+        case SDLK_w:
+          ++_octave;
+          break;
+        case SDLK_q:
+          --_octave;
+          break;
+      }
       break;
     case SDL_KEYUP:
-      if (event.key.keysym.sym == SDLK_z)
-        _playC = false;
-      if (event.key.keysym.sym == SDLK_x)
-        _playD = false;
-      if (event.key.keysym.sym == SDLK_c)
-        _playE = false;
-      if (event.key.keysym.sym == SDLK_v)
-        _playF = false;
-      if (event.key.keysym.sym == SDLK_b)
-        _playG = false;
-      if (event.key.keysym.sym == SDLK_n)
-        _playA = false;
-      if (event.key.keysym.sym == SDLK_m)
-        _playB = false;
-      if (event.key.keysym.sym == SDLK_COMMA)
-        _playHighC = false;
+      noteToPlay = none;
+      break;
   }
 }
 // void SDLAudioCallback(void *userData, u8 *audioData, int length) {
@@ -152,9 +177,9 @@ void update() {
   
   for (int i = 0; i < ARRAY_LENGTH(state.pixels); ++i) {
     f32 procent = (f32)i / (f32)ARRAY_LENGTH(state.pixels);  
-    u32 red = _playC || _playD || _playE ? (u32)(procent * 0xFF) << 24u : 0x00 << 24u;
-    u32 green = _playF || _playG || _playA ? (u32)(procent * 0xFF) << 16u : 0x00 << 16u;
-    u32 blue = _playB || _playHighC ? (u32)(procent * 0xFF) << 8u : 0x00 << 8u;
+    u32 red = (u32)(procent * 0xFF) << 24u;
+    u32 green = (u32)(procent * 0xFF) << 16u;
+    u32 blue = (u32)(procent * 0xFF) << 8u;
     u32 color = 0x000000FF | red | green | blue;
     state.pixels[i] = color;
   }
@@ -214,25 +239,14 @@ int main() {
   }
 
   while (!state.quit) {
+    
     process_input();
     update();
     render();
-    if(_playC)
-      playTone(deviceId, samplesPerSecond, 262); //Ungefärliga värde ;)
-    if(_playD)
-      playTone(deviceId, samplesPerSecond, 294);
-    if(_playE)
-      playTone(deviceId, samplesPerSecond, 330);
-    if(_playF)
-      playTone(deviceId, samplesPerSecond, 349);
-    if(_playG)
-      playTone(deviceId, samplesPerSecond, 392);
-    if(_playA)
-      playTone(deviceId, samplesPerSecond, 440);
-    if(_playB)
-      playTone(deviceId, samplesPerSecond, 494);
-    if(_playHighC)
-      playTone(deviceId, samplesPerSecond, 523);
+    if(noteToPlay != none)
+      playTone(deviceId, samplesPerSecond, noteToPlay * pow(2, _octave));
+    else
+      SDL_ClearQueuedAudio(deviceId);
   }
   destroy_window();
 
