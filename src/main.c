@@ -25,6 +25,14 @@ struct {
   bool quit;
 } state;
 int last_frame_time = 0;
+bool _playC = false;
+bool _playD = false;
+bool _playE = false;
+bool _playF = false;
+bool _playG = false;
+bool _playA = false;
+bool _playB = false;
+bool _playHighC = false;
 
 int initialize_window(void) {
 
@@ -63,13 +71,46 @@ void process_input() {
   SDL_PollEvent(&event);
 
   switch (event.type) {
-  case SDL_QUIT:
-    state.quit = true;
-    break;
-  case SDL_KEYDOWN:
-    if (event.key.keysym.sym == SDLK_ESCAPE)
+    case SDL_QUIT:
       state.quit = true;
-    break;
+      break;
+    case SDL_KEYDOWN:
+      if (event.key.keysym.sym == SDLK_ESCAPE)
+        state.quit = true;
+      if (event.key.keysym.sym == SDLK_z)
+        _playC = true;
+      if (event.key.keysym.sym == SDLK_x)
+        _playD = true;
+      if (event.key.keysym.sym == SDLK_c)
+        _playE = true;
+      if (event.key.keysym.sym == SDLK_v)
+        _playF = true;
+      if (event.key.keysym.sym == SDLK_b)
+        _playG = true;
+      if (event.key.keysym.sym == SDLK_n)
+        _playA = true;
+      if (event.key.keysym.sym == SDLK_m)
+        _playB = true;
+      if (event.key.keysym.sym == SDLK_COMMA)
+        _playHighC = true;
+      break;
+    case SDL_KEYUP:
+      if (event.key.keysym.sym == SDLK_z)
+        _playC = false;
+      if (event.key.keysym.sym == SDLK_x)
+        _playD = false;
+      if (event.key.keysym.sym == SDLK_c)
+        _playE = false;
+      if (event.key.keysym.sym == SDLK_v)
+        _playF = false;
+      if (event.key.keysym.sym == SDLK_b)
+        _playG = false;
+      if (event.key.keysym.sym == SDLK_n)
+        _playA = false;
+      if (event.key.keysym.sym == SDLK_m)
+        _playB = false;
+      if (event.key.keysym.sym == SDLK_COMMA)
+        _playHighC = false;
   }
 }
 // void SDLAudioCallback(void *userData, u8 *audioData, int length) {
@@ -86,7 +127,7 @@ SDL_AudioDeviceID SDLInitAudio(i32 bufferSize, i32 samplesPerSecond) {
 
   SDL_AudioDeviceID deviceId = SDL_OpenAudioDevice(NULL, 0, &audioSettings, &obtained, SDL_AUDIO_ALLOW_ANY_CHANGE);
 
-  if(audioSettings.format != AUDIO_S16LSB) {
+  if(obtained.format != AUDIO_S16LSB) {
     fprintf(stderr, "Could not get S16LSB as sample format\n");
     SDL_CloseAudio();
     return 0;
@@ -111,10 +152,10 @@ void update() {
   
   for (int i = 0; i < ARRAY_LENGTH(state.pixels); ++i) {
     f32 procent = (f32)i / (f32)ARRAY_LENGTH(state.pixels);  
-    u32 red = (u32)(procent * 0xFF) << 24u;
-    u32 green = (u32)(procent * 0xFF) << 16u;
-    u32 blue = (u32)(procent * 0xFF) << 8u;
-    u32 color = 0x000000FF | blue | red;
+    u32 red = _playC || _playD || _playE ? (u32)(procent * 0xFF) << 24u : 0x00 << 24u;
+    u32 green = _playF || _playG || _playA ? (u32)(procent * 0xFF) << 16u : 0x00 << 16u;
+    u32 blue = _playB || _playHighC ? (u32)(procent * 0xFF) << 8u : 0x00 << 8u;
+    u32 color = 0x000000FF | red | green | blue;
     state.pixels[i] = color;
   }
   SDL_UpdateTexture(state.texture, NULL, state.pixels, SCREEN_WIDTH * 4);
@@ -134,24 +175,14 @@ void destroy_window() {
   SDL_CloseAudio(); //Not strictly necessary, SDL_Quit should already do this
   SDL_Quit();
 }
-
-int main() {
-  state.quit = !initialize_window();
-  setup();
-
-  i32 samplesPerSecond = 48000;
-  i32 toneHz = 512;
+void playTone(SDL_AudioDeviceID deviceId, i32 samplesPerSecond, i32 hz) {
+  i32 toneHz = hz;
   i16 toneVolume = 3000;
-  u32 runningSampleIndex = 0;
+  static u32 runningSampleIndex = 0;
   i32 squareWavePeriod = samplesPerSecond / toneHz;
   i32 halfSquareWavePeriod = squareWavePeriod / 2;
   i32 bytesPerSample = sizeof(i16) * 2;
-  SDL_AudioDeviceID deviceId = SDLInitAudio(48000, samplesPerSecond * bytesPerSample / 60);
-  if(deviceId == 0) {
-    fprintf(stderr, "Error when opening audio device\n");
-  }
   bool soundIsPlaying = false;
-  while (!state.quit) {
     i32 targetQueueBytes = samplesPerSecond * bytesPerSample;
     i32 bytesToWrite = targetQueueBytes - SDL_GetQueuedAudioSize(deviceId);
     if(bytesToWrite) {
@@ -172,11 +203,37 @@ int main() {
       SDL_PauseAudioDevice(deviceId, 0);
       soundIsPlaying = true;
     }
+}
+int main() {
+  state.quit = !initialize_window();
+  setup();
+  i32 samplesPerSecond = 48000;
+  SDL_AudioDeviceID deviceId = SDLInitAudio(4096, samplesPerSecond);
+  if(deviceId == 0) {
+    fprintf(stderr, "Error when opening audio device\n");
+  }
+
+  while (!state.quit) {
     process_input();
     update();
     render();
+    if(_playC)
+      playTone(deviceId, samplesPerSecond, 262); //Ungefärliga värde ;)
+    if(_playD)
+      playTone(deviceId, samplesPerSecond, 294);
+    if(_playE)
+      playTone(deviceId, samplesPerSecond, 330);
+    if(_playF)
+      playTone(deviceId, samplesPerSecond, 349);
+    if(_playG)
+      playTone(deviceId, samplesPerSecond, 392);
+    if(_playA)
+      playTone(deviceId, samplesPerSecond, 440);
+    if(_playB)
+      playTone(deviceId, samplesPerSecond, 494);
+    if(_playHighC)
+      playTone(deviceId, samplesPerSecond, 523);
   }
-
   destroy_window();
 
   return 0;
