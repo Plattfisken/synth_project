@@ -1,5 +1,6 @@
 #include "./constants.h"
 #include <SDL2/SDL.h>
+#include <math.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -24,22 +25,26 @@ struct {
   u32 pixels[SCREEN_WIDTH * SCREEN_HEIGHT];
   bool quit;
 } state;
-enum note { 
-  none,
-  C = 262, 
-  CSharp = 277, 
-  D = 294, 
-  DSharp = 311,
-  E = 330, 
-  F = 349, 
-  FSharp = 370, 
-  G = 392, 
-  GSharp = 415, 
-  A = 440, 
-  ASharp = 466, 
-  B = 494
-} noteToPlay;
-i32 _octave = 0;
+enum NoteName { 
+  none = 100, //Any value that can never be reached in another way
+  C = -9, 
+  CSharp = -8, 
+  D = -7, 
+  DSharp = -6,
+  E = -5, 
+  F = -4, 
+  FSharp = -3, 
+  G = -2, 
+  GSharp = -1, 
+  A = 0, 
+  ASharp = 1, 
+  B = 2
+}; 
+struct Note {
+  enum NoteName Name;
+  i32 Octave;
+} noteToPlay = {none, 0};
+i32 selectedOctave = 0;
 int last_frame_time = 0;
 int initialize_window(void) {
 
@@ -87,60 +92,70 @@ void process_input() {
           state.quit = true;
           break; 
         case SDLK_z:
-          noteToPlay = C;
+          noteToPlay.Name = C;
+          noteToPlay.Octave = selectedOctave;
           break;
         case SDLK_s:
-          noteToPlay = CSharp;
+          noteToPlay.Name = CSharp;
+          noteToPlay.Octave = selectedOctave;
           break;
         case SDLK_x:
-          noteToPlay = D;
+          noteToPlay.Name = D;
+          noteToPlay.Octave = selectedOctave;
           break;
         case SDLK_d:
-          noteToPlay = DSharp;
+          noteToPlay.Name = DSharp;
+          noteToPlay.Octave = selectedOctave;
           break;
         case SDLK_c:
-          noteToPlay = E;
+          noteToPlay.Name = E;
+          noteToPlay.Octave = selectedOctave;
           break;
         case SDLK_v:
-          noteToPlay = F;
+          noteToPlay.Name = F;
+          noteToPlay.Octave = selectedOctave;
           break;
         case SDLK_g:
-          noteToPlay = FSharp;
+          noteToPlay.Name = FSharp;
+          noteToPlay.Octave = selectedOctave;
           break;
         case SDLK_b:
-          noteToPlay = G;
+          noteToPlay.Name = G;
+          noteToPlay.Octave = selectedOctave;
           break;
         case SDLK_h:
-          noteToPlay = GSharp;
+          noteToPlay.Name = GSharp;
+          noteToPlay.Octave = selectedOctave;
           break;
         case SDLK_n:
-          noteToPlay = A;
+          noteToPlay.Name = A;
+          noteToPlay.Octave = selectedOctave;
           break;
         case SDLK_j:
-          noteToPlay = ASharp;
+          noteToPlay.Name = ASharp;
+          noteToPlay.Octave = selectedOctave;
           break;
         case SDLK_m:
-          noteToPlay = B;
+          noteToPlay.Name = B;
+          noteToPlay.Octave = selectedOctave;
           break;
         case SDLK_COMMA:
-          noteToPlay = C * 2;
+          noteToPlay.Name = C;
+          noteToPlay.Octave = selectedOctave + 1;
           break;
         case SDLK_w:
-          ++_octave;
+          ++selectedOctave;
           break;
         case SDLK_q:
-          --_octave;
+          --selectedOctave;
           break;
       }
       break;
     case SDL_KEYUP:
-      noteToPlay = none;
+      noteToPlay.Name = none;
       break;
   }
 }
-// void SDLAudioCallback(void *userData, u8 *audioData, int length) {
-//   memset(audioData, 0, length);
-// }
 SDL_AudioDeviceID SDLInitAudio(i32 bufferSize, i32 samplesPerSecond) {
   SDL_AudioSpec audioSettings = {0};
   SDL_AudioSpec obtained;
@@ -148,7 +163,7 @@ SDL_AudioDeviceID SDLInitAudio(i32 bufferSize, i32 samplesPerSecond) {
   audioSettings.format = AUDIO_S16LSB;
   audioSettings.channels = 2;
   audioSettings.samples = bufferSize;
-  audioSettings.callback = NULL; //&SDLAudioCallback;
+  audioSettings.callback = NULL; 
 
   SDL_AudioDeviceID deviceId = SDL_OpenAudioDevice(NULL, 0, &audioSettings, &obtained, SDL_AUDIO_ALLOW_ANY_CHANGE);
 
@@ -173,7 +188,6 @@ void update() {
   float delta_time = (SDL_GetTicks() - last_frame_time) / 1000.0f;
 
   last_frame_time = SDL_GetTicks();
-  // memset(state.pixels, 0xFFFF00FF, sizeof(state.pixels));
   
   for (int i = 0; i < ARRAY_LENGTH(state.pixels); ++i) {
     f32 procent = (f32)i / (f32)ARRAY_LENGTH(state.pixels);  
@@ -200,22 +214,34 @@ void destroy_window() {
   SDL_CloseAudio(); //Not strictly necessary, SDL_Quit should already do this
   SDL_Quit();
 }
-void playTone(SDL_AudioDeviceID deviceId, i32 samplesPerSecond, i32 hz) {
-  i32 toneHz = hz;
+f32 getHertz(struct Note note) {
+  const f32 TwelvthSqrtOfTwoApprox = 1.059463f;
+  i32 A = 440;
+  i32 distanceFromA = note.Name;
+  f32 result = A * pow(TwelvthSqrtOfTwoApprox, distanceFromA) * pow(2, note.Octave);
+  return result;
+}
+u32 RoundFloat(f32 f)
+{
+  u32 result = (u32)(f + 0.5f);
+  return result;
+}
+void playSineWave(SDL_AudioDeviceID deviceId, i32 samplesPerSecond, f32 hz) {
+}
+void playSquareWave(SDL_AudioDeviceID deviceId, i32 samplesPerSecond, f32 hz) {
   i16 toneVolume = 3000;
   static u32 runningSampleIndex = 0;
-  i32 squareWavePeriod = samplesPerSecond / toneHz;
-  i32 halfSquareWavePeriod = squareWavePeriod / 2;
+  f32 squareWavePeriod = samplesPerSecond / hz;
+  f32 halfSquareWavePeriod = squareWavePeriod / 2;
   i32 bytesPerSample = sizeof(i16) * 2;
-  bool soundIsPlaying = false;
-    i32 targetQueueBytes = 4800 * bytesPerSample;
-    i32 bytesToWrite = targetQueueBytes - SDL_GetQueuedAudioSize(deviceId);
+  i32 targetQueueBytes = 4800 * bytesPerSample;
+  i32 bytesToWrite = targetQueueBytes - SDL_GetQueuedAudioSize(deviceId);
     if(bytesToWrite) {
       void *soundBuffer = malloc(bytesToWrite);
       i16 *sampleOut = (i16 *)soundBuffer;
       i32 sampleCount = bytesToWrite/bytesPerSample;
       for(i32 sampleIndex = 0; sampleIndex < sampleCount; ++sampleIndex) {
-        i16 sampleValue = ((runningSampleIndex++ / halfSquareWavePeriod) % 2) ? toneVolume : -toneVolume;
+        i16 sampleValue = ((runningSampleIndex++ / RoundFloat(halfSquareWavePeriod)) % 2) ? toneVolume : -toneVolume;
         *sampleOut++ = sampleValue;
         *sampleOut++ = sampleValue;
       }
@@ -224,10 +250,7 @@ void playTone(SDL_AudioDeviceID deviceId, i32 samplesPerSecond, i32 hz) {
       }
       free(soundBuffer);
     }
-    if(!soundIsPlaying) {
-      SDL_PauseAudioDevice(deviceId, 0);
-      soundIsPlaying = true;
-    }
+    SDL_PauseAudioDevice(deviceId, 0);
 }
 int main() {
   state.quit = !initialize_window();
@@ -243,8 +266,8 @@ int main() {
     process_input();
     update();
     render();
-    if(noteToPlay != none)
-      playTone(deviceId, samplesPerSecond, noteToPlay * pow(2, _octave));
+    if(noteToPlay.Name != none)
+      playSquareWave(deviceId, samplesPerSecond, getHertz(noteToPlay));
     else
       SDL_ClearQueuedAudio(deviceId);
   }
