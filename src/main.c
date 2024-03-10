@@ -265,16 +265,7 @@ void playSoundWave(SDL_AudioDeviceID deviceId, i32 samplesPerSecond, f32 hz, i16
       *sampleOut++ = sampleValue;
       *sampleOut++ = sampleValue;
     }
-    //Square wave
-    // for (i32 sampleIndex = 0; sampleIndex < sampleCount; ++sampleIndex) {
-    //   i16 sampleValue =
-    //       ((runningSampleIndex++ / roundFloat(halfSquareWavePeriod)) % 2)
-    //           ? toneVolume
-    //           : -toneVolume;
-    //   *sampleOut++ = sampleValue;
-    //   *sampleOut++ = sampleValue;
-    // }
-    if (SDL_QueueAudio(deviceId, soundBuffer, bytesToWrite) != 0) {
+       if (SDL_QueueAudio(deviceId, soundBuffer, bytesToWrite) != 0) {
       fprintf(stderr, "%s", SDL_GetError());
     }
     free(soundBuffer);
