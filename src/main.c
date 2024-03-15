@@ -4,6 +4,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
 
 typedef float f32;
 typedef double f64;
@@ -26,7 +28,7 @@ struct {
   bool quit;
 } state;
 enum NoteName {
-  none = 100, // Any value that can never be reached in another way
+  none = -10, // Any value that can never be reached in another way
   C = -9,
   CSharp = -8,
   D = -7,
@@ -45,10 +47,12 @@ typedef struct Note {
   i32 Octave;
 } Note; 
 Note noteToPlay = {none, 0};
+Note notes[13];
 
 i32 selectedOctave = 0;
 u32 volume = 3000;
 int last_frame_time = 0;
+bool toggledRandomizer = false;
 
 int initialize_window(void) {
 
@@ -95,56 +99,56 @@ void process_input() {
           state.quit = true;
           break;
         case SDLK_z:
-          noteToPlay.Name = C;
-          noteToPlay.Octave = selectedOctave;
+          notes[0].Name = C;
+          notes[0].Octave = selectedOctave;
           break;
         case SDLK_s:
-          noteToPlay.Name = CSharp;
-          noteToPlay.Octave = selectedOctave;
+          notes[1].Name = CSharp;
+          notes[1].Octave = selectedOctave;
           break;
         case SDLK_x:
-          noteToPlay.Name = D;
-          noteToPlay.Octave = selectedOctave;
+          notes[2].Name = D;
+          notes[2].Octave = selectedOctave;
           break;
         case SDLK_d:
-          noteToPlay.Name = DSharp;
-          noteToPlay.Octave = selectedOctave;
+          notes[3].Name = DSharp;
+          notes[3].Octave = selectedOctave;
           break;
         case SDLK_c:
-          noteToPlay.Name = E;
-          noteToPlay.Octave = selectedOctave;
+          notes[4].Name = E;
+          notes[4].Octave = selectedOctave;
           break;
         case SDLK_v:
-          noteToPlay.Name = F;
-          noteToPlay.Octave = selectedOctave;
+          notes[5].Name = F;
+          notes[5].Octave = selectedOctave;
           break;
         case SDLK_g:
-          noteToPlay.Name = FSharp;
-          noteToPlay.Octave = selectedOctave;
+          notes[6].Name = FSharp;
+          notes[6].Octave = selectedOctave;
           break;
         case SDLK_b:
-          noteToPlay.Name = G;
-          noteToPlay.Octave = selectedOctave;
+          notes[7].Name = G;
+          notes[7].Octave = selectedOctave;
           break;
         case SDLK_h:
-          noteToPlay.Name = GSharp;
-          noteToPlay.Octave = selectedOctave;
+          notes[8].Name = GSharp;
+          notes[8].Octave = selectedOctave;
           break;
         case SDLK_n:
-          noteToPlay.Name = A;
-          noteToPlay.Octave = selectedOctave;
+          notes[9].Name = A;
+          notes[9].Octave = selectedOctave;
           break;
         case SDLK_j:
-          noteToPlay.Name = ASharp;
-          noteToPlay.Octave = selectedOctave;
+          notes[10].Name = ASharp;
+          notes[10].Octave = selectedOctave;
           break;
         case SDLK_m:
-          noteToPlay.Name = B;
-          noteToPlay.Octave = selectedOctave;
+          notes[11].Name = B;
+          notes[11].Octave = selectedOctave;
           break;
         case SDLK_COMMA:
-          noteToPlay.Name = C;
-          noteToPlay.Octave = selectedOctave + 1;
+          notes[12].Name = C;
+          notes[12].Octave = selectedOctave + 1;
           break;
         case SDLK_w:
           ++selectedOctave;
@@ -153,22 +157,69 @@ void process_input() {
           --selectedOctave;
           break;
         case SDLK_i:
-          if(volume >= 100)
-            volume -= 100;
+          if(volume >= 400)
+            volume -= 400;
           else
             volume = 0;
           break;
         case SDLK_o:
-          volume +=100;
+          volume +=400;
+          break;
+        case SDLK_r:
+          toggledRandomizer = toggledRandomizer == false ? true : false;
           break;
       }
       break;
     case SDL_KEYUP:
-      noteToPlay.Name = none;
-      break;
+      switch (event.key.keysym.sym) {
+        case SDLK_z:
+          notes[0].Name = none;
+          break;
+        case SDLK_s:
+          notes[1].Name = none;
+          break;
+        case SDLK_x:
+          notes[2].Name = none;
+          break;
+        case SDLK_d:
+          notes[3].Name = none;
+          break;
+        case SDLK_c:
+          notes[4].Name = none;
+          break;
+        case SDLK_v:
+          notes[5].Name = none;
+          break;
+        case SDLK_g:
+          notes[6].Name = none;
+          break;
+        case SDLK_b:
+          notes[7].Name = none;
+          break;
+        case SDLK_h:
+          notes[8].Name = none;
+          break;
+        case SDLK_n:
+          notes[9].Name = none;
+          break;
+        case SDLK_j:
+          notes[10].Name = none;
+          break;
+        case SDLK_m:
+          notes[11].Name = none;
+          break;
+        case SDLK_COMMA:
+          notes[12].Name = none;
+          break;
+      }
+    break;
   }
 }
-void setup() {}
+void setup() {
+  for(i32 i = 0; i < ARRAY_LENGTH(notes); ++i) {
+    notes[i].Name = none;
+  }
+}
 void update() {
   int time_to_wait = FRAME_TARGET_TIME - (SDL_GetTicks() - last_frame_time);
 
@@ -250,9 +301,18 @@ u32 roundFloat(f32 f) {
   u32 result = (u32)(f + 0.5f);
   return result;
 }
-void playSoundWave(SDL_AudioDeviceID deviceId, i32 samplesPerSecond, f32 hz, i16 toneVolume) {
+i16 getSampleValue(u32 sampleIndex, i32 samplesPerSecond) {
+  i16 result = notes[0].Name != none ? roundFloat((sin(2 * M_PI * sampleIndex / (samplesPerSecond / getHertz(notes[0]))))) : 0;
+  for(i32 i = 0; i < ARRAY_LENGTH(notes); ++i) {
+    if(notes[i].Name != none) {
+      result += roundFloat((sin(2 * M_PI * sampleIndex / (samplesPerSecond / getHertz(notes[i])))));
+    }
+  }
+  return result;
+}
+void playAudioData(SDL_AudioDeviceID deviceId, i32 samplesPerSecond, i16 toneVolume) {
   static u32 runningSampleIndex = 0;
-  f32 squareWavePeriod = samplesPerSecond / hz;
+  // f32 soundWavePeriod = samplesPerSecond / hz;
   i32 bytesPerSample = sizeof(i16) * 2;
   i32 targetQueueBytes = 4800 * bytesPerSample;
   i32 bytesToWrite = targetQueueBytes - SDL_GetQueuedAudioSize(deviceId);
@@ -261,16 +321,22 @@ void playSoundWave(SDL_AudioDeviceID deviceId, i32 samplesPerSecond, f32 hz, i16
     i16 *sampleOut = (i16 *)soundBuffer;
     i32 sampleCount = bytesToWrite / bytesPerSample;
     for (i32 sampleIndex = 0; sampleIndex < sampleCount; ++sampleIndex) {
-      i16 sampleValue = sin(2 * M_PI * runningSampleIndex++ / squareWavePeriod) * toneVolume;  
+      i16 sampleValue = getSampleValue(runningSampleIndex, samplesPerSecond) * toneVolume;
+      ++runningSampleIndex;
       *sampleOut++ = sampleValue;
       *sampleOut++ = sampleValue;
+      // printf("%d\n", sampleValue);
     }
-       if (SDL_QueueAudio(deviceId, soundBuffer, bytesToWrite) != 0) {
+    if (SDL_QueueAudio(deviceId, soundBuffer, bytesToWrite) != 0) {
       fprintf(stderr, "%s", SDL_GetError());
     }
     free(soundBuffer);
   }
   SDL_PauseAudioDevice(deviceId, 0);
+}
+i32 getRandomNoteName() {
+  i32 randNr = rand() % 13;
+  return randNr - 10;
 }
 int main() {
   state.quit = !initialize_window();
@@ -280,14 +346,25 @@ int main() {
   if (deviceId == 0) {
     fprintf(stderr, "Error when opening audio device\n");
   }
+  srand(time(NULL));
 
   while (!state.quit) {
 
     process_input();
     update();
     render();
-    if (noteToPlay.Name != none)
-      playSoundWave(deviceId, samplesPerSecond, getHertz(noteToPlay), volume);
+    if(toggledRandomizer) {
+      notes[12].Name = getRandomNoteName();
+    }
+    bool playSound = false;
+    for(int i = 0; i < ARRAY_LENGTH(notes); ++i) {
+      if(notes[i].Name != none) {
+        playSound = true;
+        break;
+      }
+    } 
+    if (playSound)
+      playAudioData(deviceId, samplesPerSecond, volume);
     else
       SDL_ClearQueuedAudio(deviceId);
   }
