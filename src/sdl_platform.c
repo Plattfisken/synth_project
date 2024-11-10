@@ -1,21 +1,12 @@
 #include "root.h"
 
 struct {
-  SDL_Window *window;
-  SDL_Renderer *renderer;
-  SDL_Texture *texture;
-  bool quit;
+    SDL_Window *window;
+    SDL_Renderer *renderer;
+    SDL_Texture *texture;
+    u32 pixels[SCREEN_WIDTH * SCREEN_HEIGHT];
+    bool quit;
 } state;
-
-global Note randomNote = {none, 0};
-global Note notes[13];
-
-global i32 selectedOctave = 0;
-global u32 volume = 3000;
-global int last_frame_time = 0;
-global bool toggledRandomizer = false;
-global u32 addedHarmonics = 1; //Zero or one?!?!??
-global WaveType waveToGenerate;
 
 internal bool SDLInitializeWindow(void) {
 
@@ -67,71 +58,6 @@ SDL_AudioDeviceID SDLInitAudio(i32 bufferSize, i32 samplesPerSecond) {
         return 0;
     }
     return deviceId;
-}
-
-internal f32 getHertz(Note note) {
-    const f32 TwelvthRootOfTwoApprox = 1.059463f;
-    i32 A = 440;
-    i32 distanceFromA = note.Name;
-    f32 result = A * pow(TwelvthRootOfTwoApprox, distanceFromA) * pow(2, note.Octave);
-    return result;
-}
-
-internal i16 getSampleValue(u32 sampleIndex, i32 samplesPerSecond, i16 toneVolume) {
-    f32 result = 0;
-    for (i32 i = 0; i < ARRAY_LENGTH(notes); ++i) {
-        if (notes[i].Name != none) {
-            f32 hz = getHertz(notes[i]);
-            result += (sin(2 * M_PI * sampleIndex / (samplesPerSecond / hz))) * toneVolume;
-            for (i32 u = 0; u < addedHarmonics; ++u) {
-                switch (waveToGenerate) {
-                    case sine: {
-                        result += (sin(2 * M_PI * sampleIndex / (samplesPerSecond / (hz * (u + 1))))) * (toneVolume / (u * 2));
-                    } break;
-                    case sawtooth: {
-                        result += (sin(2 * M_PI * sampleIndex / (samplesPerSecond / (hz * (u + 1))))) * (toneVolume / (u * 2));
-                        
-                    } break;
-                    case square: {
-                        if (!(u % 2)) {
-                            result += (sin(2 * M_PI * sampleIndex / (samplesPerSecond / (hz * (u + 1))))) * (toneVolume / u);
-                        }
-                    } break;
-                    case triangle: {
-                        if (u % 2) {
-                            result += (sin(2 * M_PI * sampleIndex / (samplesPerSecond / (hz * (u + 1))))) * (toneVolume / u);
-                        } 
-                    } break;
-                }
-            }
-        }
-    }
-    if (randomNote.Name != none) {
-        i32 hz = getHertz(randomNote);
-        result += (sin(2 * M_PI * sampleIndex / (samplesPerSecond / hz))) * toneVolume;
-            for (i32 u = 0; u < addedHarmonics; ++u) {
-                switch (waveToGenerate) {
-                    case sine: {
-                        result += (sin(2 * M_PI * sampleIndex / (samplesPerSecond / (hz * (u + 1))))) * (toneVolume / (u * 2));
-                    } break;
-                    case sawtooth: {
-                        result += (sin(2 * M_PI * sampleIndex / (samplesPerSecond / (hz * (u + 1))))) * (toneVolume / (u * 2));
-                        
-                    } break;
-                    case square: {
-                        if (!(u % 2)) {
-                            result += (sin(2 * M_PI * sampleIndex / (samplesPerSecond / (hz * (u + 1))))) * (toneVolume / u);
-                        }
-                    } break;
-                    case triangle: {
-                        if (u % 2) {
-                            result += (sin(2 * M_PI * sampleIndex / (samplesPerSecond / (hz * (u + 1))))) * (toneVolume / u);
-                        } 
-                    } break;
-                }
-            }
-    }
-    return result;
 }
 
 internal void playAudioData(SDL_AudioDeviceID deviceId, i32 samplesPerSecond, i16 toneVolume) {
@@ -311,21 +237,14 @@ internal void process_input(void) {
   }
 }
 
-internal void SDLQuitApp(void) {
-    SDL_DestroyTexture(state.texture);
-    SDL_DestroyRenderer(state.renderer);
-    SDL_DestroyWindow(state.window);
-
-    SDL_CloseAudio(); // Not strictly necessary, SDL_Quit should already do this
-    SDL_Quit();
-}
-
-internal void setup(void) {
-    for (i32 i = 0; i < ARRAY_LENGTH(notes); ++i) {
-        notes[i].Name = none;
-    }
-    srand(time(NULL));
-}
+// internal void SDLQuitApp(void) {
+//     SDL_DestroyTexture(state.texture);
+//     SDL_DestroyRenderer(state.renderer);
+//     SDL_DestroyWindow(state.window);
+//
+//     SDL_CloseAudio(); // Not strictly necessary, SDL_Quit should already do this
+//     SDL_Quit();
+// }
 
 internal void render(void) {
     SDL_RenderClear(state.renderer);
@@ -333,20 +252,11 @@ internal void render(void) {
     SDL_RenderPresent(state.renderer);
 }
 
-internal u32 roundFloat(f32 f) {
-  u32 result = (u32)(f + 0.5f);
-  return result;
-}
-
-internal i32 getRandomNoteName(void) {
-  i32 randNr = rand() % 13;
-  return randNr - 10;
-}
 
 int main(int argc, char **argv) {
     state.quit = !SDLInitializeWindow();
     setup();
-    
+
     i32 samplesPerSecond = 48000;
     SDL_AudioDeviceID deviceId = SDLInitAudio(1024, samplesPerSecond);
     if (deviceId == 0) {
@@ -369,8 +279,8 @@ int main(int argc, char **argv) {
         last_frame_time = SDL_GetTicks();
 
         //Fixa detta, kanske skriva om hur texturerna ritas upp på skärmen sdl_back_buffer?
-        appUpdateAndRender();
-        SDL_UpdateTexture(state.texture, NULL, 0/* state.pixels */, SCREEN_WIDTH * 4);
+        appUpdateAndRender(state.pixels, ARRAY_LENGTH(state.pixels));
+        SDL_UpdateTexture(state.texture, NULL, state.pixels , SCREEN_WIDTH * 4);
 
         render();
         if (toggledRandomizer) {
@@ -395,6 +305,6 @@ int main(int argc, char **argv) {
         else
             SDL_ClearQueuedAudio(deviceId);
     }
-    SDLQuitApp();
+    SDL_Quit();
     return 0;
 }
